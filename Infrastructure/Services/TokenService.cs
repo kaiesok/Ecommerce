@@ -15,38 +15,30 @@ namespace Infrastructure.Services
 
         public TokenService(IConfiguration configuration)
         {
-            _jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()
-                          ?? throw new ArgumentNullException(nameof(JwtSettings), "JWT settings cannot be null");
+            _jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>();
         }
 
         public string GenerateToken(User user)
         {
-            if (user == null)
-                throw new ArgumentNullException(nameof(user));
-
-            var claims = new[]
+            var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Name, user.Email),
                 new Claim(ClaimTypes.Role, user.Role.ToString())
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes),
-                Issuer = _jwtSettings.Issuer,
-                Audience = _jwtSettings.Audience,
-                SigningCredentials = credentials
-            };
+            var token = new JwtSecurityToken(
+                _jwtSettings.Issuer,
+                _jwtSettings.Audience,
+                claims,
+                expires: DateTime.Now.AddMinutes(_jwtSettings.ExpirationMinutes),
+                signingCredentials: credentials
+            );
 
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-
-            return tokenHandler.WriteToken(token);
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }
